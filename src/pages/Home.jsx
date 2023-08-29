@@ -1,44 +1,55 @@
 import { useState } from 'react';
-import { searchForShows, searchForActors } from '../tvmaze';
+import { useQuery } from '@tanstack/react-query';
+import { searchForShows, searchForPeople } from './../api/tvmaze';
 import SearchForm from '../components/SearchForm';
+import ShowGrid from '../components/shows/ShowGrid';
+import ActorsGrid from '../components/actors/ActorsGrid';
+import { TextCenter } from '../components/common/TextCenter';
+
 const Home = () => {
-  const [apiData, setapiData] = useState(null);
-  const [apiDataError, setapiDataError] = useState(null);
+  const [filter, setFilter] = useState(null);
 
-  const onSearch = async (q, searchOption) => {
-    try {
-      setapiDataError(null);
+  const { data: apiData, error: apiDataError } = useQuery({
+    queryKey: ['search', filter],
+    queryFn: () =>
+      filter.searchOption === 'shows'
+        ? searchForShows(filter.q)
+        : searchForPeople(filter.q),
+    enabled: !!filter,
+    refetchOnWindowFocus: false,
+  });
 
-      let result;
-      if (searchOption === 'shows') {
-        result = await searchForShows(q);
-      } else {
-        result = await searchForActors(q);
-      }
-      setapiData(result);
-    } catch (error) {
-      setapiDataError(error);
-    }
+  const onSearch = async ({ q, searchOption }) => {
+    setFilter({ q, searchOption });
   };
 
   const renderApiData = () => {
     if (apiDataError) {
-      return <div>Error Occured: {apiDataError.message}</div>;
+      return <TextCenter>Error occured: {apiDataError.message}</TextCenter>;
+    }
+
+    if (apiData?.length === 0) {
+      return <TextCenter>No results</TextCenter>;
     }
 
     if (apiData) {
-      return apiData[0].show
-        ? apiData.map(data => <div key={data.show.id}>{data.show.name}</div>)
-        : apiData.map(data => (
-            <div key={data.person.id}>{data.person.name}</div>
-          ));
+      return apiData[0].show ? (
+        <ShowGrid shows={apiData} />
+      ) : (
+        <ActorsGrid actors={apiData} />
+      );
     }
+
+    return null;
   };
+
   return (
     <div>
       <SearchForm onSearch={onSearch} />
+
       <div>{renderApiData()}</div>
     </div>
   );
 };
+
 export default Home;
